@@ -1,0 +1,139 @@
+csv_file = 'yellow_tripdata_2018-05.csv.bz2'
+
+# Size on disk
+from pathlib import Path
+MB = 2**20
+Path(csv_file).stat().st_size / MB
+# 85.04909038543701
+
+# Line count
+import bz2
+with bz2.open(csv_file, 'rt') as fp:
+    num_lines = sum(1 for _ in fp)
+num_lines
+# 9224065
+
+f'{num_lines:,}'
+# '9,224,065'
+
+# Load part
+import pandas as pd
+nrows = 10_000
+df = pd.read_csv(csv_file, nrows=nrows)
+df.memory_usage(deep=True).sum() / MB
+# 3.070953369140625
+
+# Extrapolate to full size
+Out[12] * (num_lines / nrows)
+# 2832.667348892212
+
+# Look at first 3 lines
+with bz2.open(csv_file, 'rt') as fp:
+    for i, line in enumerate(fp):
+        print(line.strip())
+        if i == 3:
+            break
+
+# VendorID,tpep_pickup_datetime,tpep_dropoff_datetime,passenger_count,trip_distance,RatecodeID,store_and_fwd_flag,PULocationID,DOLocationID,payment_type,fare_amount,extra,mta_tax,tip_amount,tolls_amount,improvement_surcharge,total_amount
+#
+# 1,2018-05-01 00:13:56,2018-05-01 00:22:46,1,1.60,1,N,230,50,1,8,0.5,0.5,1.85,0,0.3,11.15
+# 1,2018-05-01 00:23:26,2018-05-01 00:29:56,1,1.70,1,N,263,239,1,7.5,0.5,0.5,2,0,0.3,10.8
+
+# Look at first 3 records
+from pprint import pprint
+with bz2.open(csv_file, 'rt') as fp:
+    rdr = csv.DictReader(fp)
+    for i, row in enumerate(rdr):
+        pprint(row)
+        if i == 3:
+            break
+# {'DOLocationID': '50',
+#  'PULocationID': '230',
+#  'RatecodeID': '1',
+#  'VendorID': '1',
+#  'extra': '0.5',
+#  'fare_amount': '8',
+#  'improvement_surcharge': '0.3',
+#  'mta_tax': '0.5',
+#  'passenger_count': '1',
+#  'payment_type': '1',
+#  'store_and_fwd_flag': 'N',
+#  'tip_amount': '1.85',
+#  'tolls_amount': '0',
+#  'total_amount': '11.15',
+#  'tpep_dropoff_datetime': '2018-05-01 00:22:46',
+#  'tpep_pickup_datetime': '2018-05-01 00:13:56',
+#  'trip_distance': '1.60'}
+# ...
+
+# Data types
+df = pd.read_csv(csv_file)
+df.dtypes
+
+# VendorID                   int64
+# tpep_pickup_datetime      object
+# tpep_dropoff_datetime     object
+# passenger_count            int64
+# trip_distance            float64
+# RatecodeID                 int64
+# store_and_fwd_flag        object
+# PULocationID               int64
+# DOLocationID               int64
+# payment_type               int64
+# fare_amount              float64
+# extra                    float64
+# mta_tax                  float64
+# tip_amount               float64
+# tolls_amount             float64
+# improvement_surcharge    float64
+# total_amount             float64
+# dtype: object
+
+# Fix time columns types
+time_cols = ['tpep_pickup_datetime', 'tpep_dropoff_datetime']
+df = pd.read_csv(csv_file, parse_dates=time_cols)
+df.dtypes
+# VendorID                          int64
+# tpep_pickup_datetime     datetime64[ns]
+# tpep_dropoff_datetime    datetime64[ns]
+# passenger_count                   int64
+# trip_distance                   float64
+# RatecodeID                        int64
+# store_and_fwd_flag               object
+# PULocationID                      int64
+# DOLocationID                      int64
+# payment_type                      int64
+# fare_amount                     float64
+# extra                           float64
+# mta_tax                         float64
+# tip_amount                      float64
+# tolls_amount                    float64
+# improvement_surcharge           float64
+# total_amount                    float64
+# dtype: object
+
+# Look for outliers
+df[['trip_distance', 'total_amount', 'passenger_count']].describe()
+#        trip_distance  total_amount  passenger_count
+# count   9.224063e+06  9.224063e+06     9.224063e+06
+# mean    3.014031e+00  1.681252e+01     1.596710e+00
+# std     3.886332e+00  7.864489e+01     1.245703e+00
+# min     0.000000e+00 -4.858000e+02     0.000000e+00
+# 25%     1.000000e+00  8.760000e+00     1.000000e+00
+# 50%     1.650000e+00  1.225000e+01     1.000000e+00
+# 75%     3.100000e+00  1.835000e+01     2.000000e+00
+# max     9.108000e+02  2.346327e+05     9.000000e+00
+
+# Look for computed outliers
+(df['tpep_dropoff_datetime'] - df['tpep_pickup_datetime']).describe()
+# count                      9224063
+# mean     0 days 00:16:29.874877155
+# std      2 days 10:35:51.816665095
+# min           -7410 days +13:10:08
+# 25%                0 days 00:06:46
+# 50%                0 days 00:11:28
+# 75%                0 days 00:19:01
+# max                0 days 23:59:59
+# dtype: object
+
+# vim: ft=python
